@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from task2.configs.config import load_config,set_seed
 from task2.methods.common import load_data,load_target_train_loader,build_model,save_checkpoint
 from task2.evaluation.metrics import evaluate
+from task2.evaluation.history import save_training_curve
 from task2.models.domain_discriminator import DomainDiscriminator,grl_alpha
 from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
@@ -32,14 +33,18 @@ def condition_on_prediction(features,probs):
 def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch):
     """
     This function runs one epoch of cdan training and returns the
-    updated global step count so the gradient reversal schedule keeps
-    advancing across later epochs
+    updated global step count together with the average classification
+    loss the average domain loss and the average domain discriminator
+    accuracy for the epoch
     """
     backbone.train()
     head.train()
     discriminator.train()
     freeze_batchnorm(backbone)
     iterators = {domain:cycle(train_loaders[domain]) for domain in SOURCE_DOMAINS}
+    total_cls_loss = 0.0
+    total_domain_loss = 0.0
+    total_domain_acc = 0.0
     for _ in range(steps_per_epoch):
         images = []
         labels = []
@@ -76,8 +81,11 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
         loss.backward()
         optimizer.step()
 
+        total_cls_loss += cls_loss.item()
+        total_domain_loss += domain_loss.item()
+        total_domain_acc += (domain_logits.argmax(dim=1)==domain_labels).float().mean().item()
         global_step += 1
-    return global_step
+    return global_step,total_cls_loss/steps_per_epoch,total_domain_loss/steps_per_epoch,total_domain_acc/steps_per_epoch
 
 def run_training(cfg,max_alpha,checkpoint_name):
     """
@@ -106,9 +114,10 @@ def run_training(cfg,max_alpha,checkpoint_name):
     best_mean_f1 = -1
     epochs_without_improve = 0
     global_step = 0
+    history = []
 
     for epoch in range(cfg["optimizer"]["max_epochs"]):
-        global_step = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch)
+        global_step,cls_loss,domain_loss,domain_acc = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch)
 
         val_f1s = []
         for domain in SOURCE_DOMAINS:
@@ -116,6 +125,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
             val_f1s.append(macro_f1)
             print(f"epoch {epoch} {domain} val_acc {accuracy:.3f} val_f1 {macro_f1:.3f}")
         mean_f1 = sum(val_f1s)/len(val_f1s)
+        history.append({"epoch":epoch,"cls_loss":cls_loss,"domain_loss":domain_loss,"domain_acc":domain_acc,"mean_val_f1":mean_f1})
 
         if mean_f1 > best_mean_f1:
             best_mean_f1 = mean_f1
@@ -128,6 +138,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
             print(f"stopping early at epoch {epoch} best mean_f1 {best_mean_f1:.3f}")
             break
 
+    save_training_curve(history,checkpoint_name,cfg,alignment_key="domain_acc",alignment_label="domain discriminator accuracy")
     return best_mean_f1
 
 def main():

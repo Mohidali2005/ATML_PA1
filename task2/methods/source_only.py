@@ -12,6 +12,7 @@ import torch.nn as nn
 from task2.configs.config import load_config,set_seed
 from task2.methods.common import load_data,build_model,save_checkpoint
 from task2.evaluation.metrics import evaluate
+from task2.evaluation.history import save_training_curve
 from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
 from shared.device import DEVICE
@@ -20,11 +21,13 @@ def train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch)
     """
     This function runs one epoch by drawing one balanced batch from each
     source domain and taking one optimizer step on the combined batch
+    and returns the average classification loss for the epoch
     """
     backbone.train()
     head.train()
     freeze_batchnorm(backbone)
     iterators = {domain:cycle(train_loaders[domain]) for domain in SOURCE_DOMAINS}
+    total_loss = 0.0
     for _ in range(steps_per_epoch):
         images = []
         labels = []
@@ -41,6 +44,8 @@ def train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch)
         loss = criterion(logits,labels)
         loss.backward()
         optimizer.step()
+        total_loss += loss.item()
+    return total_loss/steps_per_epoch
 
 def main():
     """
@@ -63,9 +68,10 @@ def main():
 
     best_mean_f1 = -1
     epochs_without_improve = 0
+    history = []
 
     for epoch in range(cfg["optimizer"]["max_epochs"]):
-        train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch)
+        cls_loss = train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch)
 
         val_f1s = []
         for domain in SOURCE_DOMAINS:
@@ -73,6 +79,7 @@ def main():
             val_f1s.append(macro_f1)
             print(f"epoch {epoch} {domain} val_acc {accuracy:.3f} val_f1 {macro_f1:.3f}")
         mean_f1 = sum(val_f1s)/len(val_f1s)
+        history.append({"epoch":epoch,"cls_loss":cls_loss,"mean_val_f1":mean_f1})
 
         if mean_f1 > best_mean_f1:
             best_mean_f1 = mean_f1
@@ -84,6 +91,8 @@ def main():
         if epochs_without_improve >= cfg["optimizer"]["patience"]:
             print(f"stopping early at epoch {epoch} best mean_f1 {best_mean_f1:.3f}")
             break
+
+    save_training_curve(history,"source_only",cfg)
 
 if __name__ == "__main__":
     main()
