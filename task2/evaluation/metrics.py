@@ -6,11 +6,13 @@ by the final comparison tables
 import torch
 from sklearn.metrics import f1_score
 
+from shared.device import DEVICE
+
 def predict(backbone,head,loader):
     """
     This function runs the backbone and the head over every batch in the
     given loader and returns the predicted labels together with the true
-    labels for the whole loader
+    labels for the whole loader on the cpu
     """
     backbone.eval()
     head.eval()
@@ -18,9 +20,9 @@ def predict(backbone,head,loader):
     all_labels = []
     with torch.no_grad():
         for images,labels,_ in loader:
-            features = backbone(images)
+            features = backbone(images.to(DEVICE))
             logits = head(features)
-            all_preds.append(logits.argmax(dim=1))
+            all_preds.append(logits.argmax(dim=1).cpu())
             all_labels.append(labels)
     return torch.cat(all_preds),torch.cat(all_labels)
 

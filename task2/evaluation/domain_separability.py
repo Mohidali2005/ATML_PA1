@@ -18,6 +18,7 @@ from task2.configs.config import load_config,set_seed
 from task2.methods.common import build_model,load_checkpoint
 from shared.pacs import load_pacs_dataframe
 from shared.pacs_protocol import load_splits,SOURCE_DOMAINS,build_source_loaders,PacsDataset
+from shared.device import DEVICE
 
 METHODS = ["source_only","dan","dann","cdan"]
 
@@ -30,7 +31,7 @@ def extract_features(backbone,loader):
     all_feats = []
     with torch.no_grad():
         for images,_,_ in loader:
-            all_feats.append(backbone(images))
+            all_feats.append(backbone(images.to(DEVICE)).cpu())
     return torch.cat(all_feats,dim=0).numpy()
 
 def collect_domain_features(backbone,df,splits,cfg,rng):

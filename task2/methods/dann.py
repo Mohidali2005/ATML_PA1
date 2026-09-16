@@ -15,6 +15,7 @@ from task2.evaluation.metrics import evaluate
 from task2.models.domain_discriminator import DomainDiscriminator,grl_alpha
 from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
+from shared.device import DEVICE
 
 def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch):
     """
@@ -34,9 +35,10 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
             batch_images,batch_labels,_ = next(iterators[domain])
             images.append(batch_images)
             labels.append(batch_labels)
-        source_images = torch.cat(images,dim=0)
-        source_labels = torch.cat(labels,dim=0)
+        source_images = torch.cat(images,dim=0).to(DEVICE)
+        source_labels = torch.cat(labels,dim=0).to(DEVICE)
         target_images,_,_ = next(target_iter)
+        target_images = target_images.to(DEVICE)
 
         progress = global_step/total_steps
         alpha = grl_alpha(progress,max_alpha)
@@ -48,7 +50,7 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
         cls_loss = criterion(logits,source_labels)
 
         domain_features = torch.cat([source_features,target_features],dim=0)
-        domain_labels = torch.cat([torch.zeros(source_features.size(0),dtype=torch.long),torch.ones(target_features.size(0),dtype=torch.long)])
+        domain_labels = torch.cat([torch.zeros(source_features.size(0),dtype=torch.long,device=DEVICE),torch.ones(target_features.size(0),dtype=torch.long,device=DEVICE)])
         domain_logits = discriminator(domain_features,alpha)
         domain_loss = criterion(domain_logits,domain_labels)
 
@@ -71,7 +73,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
     target_iter = cycle(target_loader)
 
     backbone,head = build_model()
-    discriminator = DomainDiscriminator(backbone.feature_dim,cfg["discriminator"]["hidden_dim"],cfg["discriminator"]["dropout"])
+    discriminator = DomainDiscriminator(backbone.feature_dim,cfg["discriminator"]["hidden_dim"],cfg["discriminator"]["dropout"]).to(DEVICE)
     params = list(backbone.parameters())+list(head.parameters())+list(discriminator.parameters())
     optimizer = torch.optim.AdamW(params,lr=cfg["optimizer"]["lr"],weight_decay=cfg["optimizer"]["weight_decay"])
     criterion = nn.CrossEntropyLoss()

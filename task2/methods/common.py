@@ -7,6 +7,7 @@ import torch
 
 from shared.pacs import load_pacs_dataframe,CLASSES
 from shared.pacs_protocol import load_splits,build_source_loaders,build_target_loader
+from shared.device import DEVICE
 from task2.models.backbone import ResnetBackbone
 from task2.models.classifier_head import ClassifierHead
 
@@ -42,10 +43,10 @@ def load_target_eval_loader(df,splits,cfg):
 def build_model():
     """
     This function builds a fresh resnet backbone and a fresh linear head
-    sized for the pacs classes
+    sized for the pacs classes and moves both onto the training device
     """
-    backbone = ResnetBackbone()
-    head = ClassifierHead(backbone.feature_dim,len(CLASSES))
+    backbone = ResnetBackbone().to(DEVICE)
+    head = ClassifierHead(backbone.feature_dim,len(CLASSES)).to(DEVICE)
     return backbone,head
 
 def save_checkpoint(backbone,head,path):
@@ -60,6 +61,6 @@ def load_checkpoint(backbone,head,path):
     This function loads a saved backbone and head checkpoint back into
     the given modules
     """
-    checkpoint = torch.load(path,map_location="cpu")
+    checkpoint = torch.load(path,map_location=DEVICE)
     backbone.load_state_dict(checkpoint["backbone"])
     head.load_state_dict(checkpoint["head"])

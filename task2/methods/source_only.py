@@ -14,6 +14,7 @@ from task2.methods.common import load_data,build_model,save_checkpoint
 from task2.evaluation.metrics import evaluate
 from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
+from shared.device import DEVICE
 
 def train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch):
     """
@@ -31,8 +32,8 @@ def train_epoch(backbone,head,train_loaders,optimizer,criterion,steps_per_epoch)
             batch_images,batch_labels,_ = next(iterators[domain])
             images.append(batch_images)
             labels.append(batch_labels)
-        images = torch.cat(images,dim=0)
-        labels = torch.cat(labels,dim=0)
+        images = torch.cat(images,dim=0).to(DEVICE)
+        labels = torch.cat(labels,dim=0).to(DEVICE)
 
         optimizer.zero_grad()
         features = backbone(images)
