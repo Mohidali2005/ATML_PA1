@@ -99,6 +99,26 @@ python -m task2.evaluation.controlled_study
 Results are saved in `task2/results/tables/` (csv files) and checkpoints in
 `task2/results/checkpoints/` (pt files).
 
+Every method fine tunes the full ResNet-18 backbone, which is heavy enough
+that it needs a gpu to finish in reasonable time. The code picks up a gpu
+automatically through `shared/device.py` and falls back to cpu when none is
+available, so the same commands work locally or on Colab.
+
+Running on Colab:
+
+```
+!git clone https://github.com/Mohidali2005/ATML_PA1.git
+%cd ATML_PA1
+!pip install -q huggingface_hub pyarrow
+!python -m task2.train
+!python -m task2.evaluate_final
+!python -m task2.evaluation.controlled_study
+```
+
+Pick a T4 gpu runtime before running these cells. Once the run finishes zip
+and download `task2/results` to bring the tables and checkpoints back to a
+local clone of this repo.
+
 Notes:
 - PACS is loaded from the `flwrlabs/pacs` parquet mirror on huggingface
   since there is no official torchvision loader for it.
