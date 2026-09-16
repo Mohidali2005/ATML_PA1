@@ -1,0 +1,12 @@
+ATML-PA1.pdf
+*/data/stl10_binary/
+*/data/*.tar.gz
+*/models/pretrained/
+*/results/cache/features/
+*/results/cache/heads/
+*/results/cache/images/
+__pycache__/
+*.pyc
+*.pth
+*.pt
+*.log

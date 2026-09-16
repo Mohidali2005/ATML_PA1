@@ -1,0 +1,55 @@
+# Task 1 Inductive Biases and Feature Representations
+# All randomness in this task is controlled by a single seed as required by the assignment
+seed: 6304
+image_size: 224
+
+paths:
+  stl10_root: D:/ATML_PA1_cache/stl10_binary_root
+  cache_dir: results/cache
+  tables_dir: results/tables
+  figures_dir: results/figures
+
+data:
+  train_val_split: 0.8
+  eval_subset_per_class: 50
+
+classifier_head:
+  optimizer: adamw
+  lr: 0.001
+  weight_decay: 0.0001
+  batch_size: 64
+  max_epochs: 50
+  patience: 5
+
+clip:
+  zero_shot_prompt: "a photo of a {class}."
+
+interventions:
+  color:
+    additional_transform: class_swapped_color_stats
+  translation:
+    displacements: [0,8,16,32]
+    directions: [up,down,left,right]
+  patch_shuffle:
+    grid_size: 4
+
+cue_conflict:
+  # these pairs mix classes with a similar body shape such as cat and dog
+  # with pairs from very different categories such as airplane and bird
+  class_pairs:
+    - [cat,dog]
+    - [deer,horse]
+    - [car,truck]
+    - [airplane,bird]
+    - [monkey,cat]
+  style_alpha: 1.0
+  images_per_pair_direction: 25
+  min_valid_conflicts: 200
+  rejection_ssim_threshold: 0.15
+
+representation:
+  method: tsne
+  perplexity: 30
+  max_iter: 1000
+  learning_rate: auto
+  subset_size: 400

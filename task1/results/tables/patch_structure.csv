@@ -1,0 +1,4 @@
+backbone,condition,accuracy,macro_f1,mean_confidence,consistency
+resnet,eval_patchshuffle,0.91,0.9112874956778707,0.9041875004768372,0.922
+vit,eval_patchshuffle,0.922,0.921972491500245,0.9023083448410034,0.92
+clip,eval_patchshuffle,0.88,0.8801396872904472,0.40742504596710205,0.882

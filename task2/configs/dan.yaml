@@ -1,0 +1,3 @@
+dan:
+  lambda_mmd: 1.0
+  controlled_lambdas: [0.1,1.0,10.0]

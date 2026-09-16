@@ -1,0 +1,32 @@
+# shared settings used by every method in task two
+seed: 6304
+
+paths:
+  splits_path: shared/splits/pacs_sketch_seed6304.json
+  checkpoints_dir: task2/results/checkpoints
+  tables_dir: task2/results/tables
+  figures_dir: task2/results/figures
+
+data:
+  batch_size_per_domain: 8
+  target_batch_size: 24
+  eval_batch_size: 64
+  # zero workers keeps image decoding in the main process since background
+  # worker processes crash on this machine once they run alongside heavy
+  # cpu model training in the same run
+  num_workers: 0
+
+optimizer:
+  lr: 0.0001
+  weight_decay: 0.0001
+  max_epochs: 30
+  patience: 5
+
+discriminator:
+  hidden_dim: 256
+  dropout: 0.5
+
+domain_separability:
+  test_fraction: 0.3
+  seed: 6304
+  C: 1.0
