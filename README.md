@@ -96,7 +96,8 @@ python -m task2.evaluate_final
 python -m task2.evaluation.controlled_study
 ```
 
-Results are saved in `task2/results/tables/` (csv files) and checkpoints in
+Results are saved in `task2/results/tables/` (csv files), training curve
+plots in `task2/results/figures/` (png files), and checkpoints in
 `task2/results/checkpoints/` (pt files).
 
 Every method fine tunes the full ResNet-18 backbone, which is heavy enough
@@ -131,3 +132,9 @@ Notes:
 - The controlled design study sweeps the DAN MMD loss weight rather than the
   DANN gradient reversal strength, the two options the assignment allows
   choosing between.
+- Every method saves a per epoch classification loss and validation macro F1
+  curve, plus an alignment curve where applicable, an MMD loss curve for DAN
+  and a domain discriminator accuracy curve for DANN and CDAN.
+- CDAN's result is not stable across runs, two independent Colab runs of the
+  identical code produced very different outcomes, since cuda determinism
+  was never pinned. Both outcomes are documented in `CLAUDE.md`.
