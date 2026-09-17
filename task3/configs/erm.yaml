@@ -1,0 +1,2 @@
+# erm has no extra hyperparameters beyond base.yaml since it only loads
+# the checkpoint already trained as source only in task two
