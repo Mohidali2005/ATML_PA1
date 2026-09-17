@@ -120,6 +120,75 @@ Pick a T4 gpu runtime before running these cells. Once the run finishes zip
 and download `task2/results` to bring the tables and checkpoints back to a
 local clone of this repo.
 
+## Task 3: Domain Generalization
+
+Folder: `task3/`, shared PACS loading code in `shared/`
+
+Fine tunes the same torchvision ResNet-18 on the same three labeled PACS
+source domains as task2 (Photo, Art Painting, Cartoon), but Sketch stays
+completely unseen until the final evaluation, no unlabeled target images at
+any point during training or model selection. Compares an ERM baseline
+reused directly from task2's source-only checkpoint against DAN-DG (MMD
+alignment across the three source domains only) and SAM (sharpness aware
+minimization), using source validation accuracy, Sketch accuracy, a source
+domain separability probe, and a sharpness diagnostic. Also runs a
+controlled study sweeping SAM's perturbation radius rho.
+
+To run everything from inside `PA1/`:
+
+```
+python -m task3.train
+python -m task3.evaluate_sketch
+python -m task3.evaluation.controlled_study
+```
+
+or run each stage on its own, in this order:
+
+```
+python -m shared.pacs_protocol
+python -m task3.methods.erm
+python -m task3.methods.dan_dg
+python -m task3.methods.sam
+python -m task3.evaluate_sketch
+python -m task3.evaluation.controlled_study
+```
+
+Results are saved in `task3/results/tables/` (csv files), training curve
+plots in `task3/results/figures/` (png files), and checkpoints in
+`task3/results/checkpoints/` (pt files).
+
+`task3.methods.erm` needs task2's `source_only.pt` checkpoint already
+sitting in `task2/results/checkpoints/`, since it reuses those weights
+rather than training anything new.
+
+Running on Colab:
+
+```
+!git clone https://github.com/Mohidali2005/ATML_PA1.git
+%cd ATML_PA1
+!pip install -q huggingface_hub pyarrow
+```
+
+```
+import os
+from google.colab import files
+os.makedirs("task2/results/checkpoints",exist_ok=True)
+uploaded = files.upload()
+os.rename(list(uploaded.keys())[0],"task2/results/checkpoints/source_only.pt")
+```
+
+```
+!python -m task3.train
+!python -m task3.evaluate_sketch
+!python -m task3.evaluation.controlled_study
+```
+
+Pick a T4 gpu runtime before running these cells, and upload the local
+`task2/results/checkpoints/source_only.pt` file when the upload cell asks
+for it, since that checkpoint is gitignored and never lives in the repo
+itself. Once the run finishes zip and download `task3/results` to bring the
+tables and checkpoints back to a local clone of this repo.
+
 Notes:
 - PACS is loaded from the `flwrlabs/pacs` parquet mirror on huggingface
   since there is no official torchvision loader for it.
