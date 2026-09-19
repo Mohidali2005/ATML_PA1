@@ -6,20 +6,20 @@ the resulting indices so the same split is reused everywhere
 
 import json
 import os
-import torchvision
+import datasets as hf_datasets
 from sklearn.model_selection import train_test_split
 
 from task4.configs.config import load_config
 
 def main():
     """
-    this function downloads the official cifar ten training partition if
-    needed and saves a stratified ninety ten train validation split to a
-    json file keyed by seed six three zero four
+    this function loads the official cifar ten training partition from
+    its hugging face mirror and saves a stratified ninety ten train
+    validation split to a json file keyed by seed six three zero four
     """
     cfg = load_config("vanilla")
-    dataset = torchvision.datasets.CIFAR10(root=cfg["paths"]["data_dir"],train=True,download=True)
-    labels = dataset.targets
+    dataset = hf_datasets.load_dataset("uoft-cs/cifar10",split="train",cache_dir=cfg["paths"]["data_dir"])
+    labels = dataset["label"]
 
     train_idx,val_idx = train_test_split(
         range(len(labels)),

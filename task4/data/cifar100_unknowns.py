@@ -1,10 +1,11 @@
 """
 this file loads the fixed near and far unknown class groups from the
-official cifar hundred test partition used only for task four's final
-open set evaluation
+official cifar hundred test partition, downloaded through its hugging
+face mirror since the original toronto host is often too slow for a
+colab session, used only for task four's final open set evaluation
 """
 
-import torchvision
+import datasets as hf_datasets
 from torch.utils.data import Dataset,DataLoader
 
 from task4.data.cifar10 import build_transform
@@ -18,15 +19,15 @@ class UnknownDataset(Dataset):
     fixed group of unknown classes and applies the given transform
     """
 
-    def __init__(self,root,class_names,transform):
-        base = torchvision.datasets.CIFAR100(root=root,train=False,download=True)
-        name_to_idx = {name:i for i,name in enumerate(base.classes)}
+    def __init__(self,cache_dir,class_names,transform):
+        base = hf_datasets.load_dataset("uoft-cs/cifar100",split="test",cache_dir=cache_dir)
+        name_to_idx = {name:i for i,name in enumerate(base.features["fine_label"].names)}
         wanted = {name_to_idx[name]:name for name in class_names}
         self.items = []
         for i in range(len(base)):
-            image,label = base[i]
-            if label in wanted:
-                self.items.append((image,wanted[label]))
+            row = base[i]
+            if row["fine_label"] in wanted:
+                self.items.append((row["img"],wanted[row["fine_label"]]))
         self.transform = transform
 
     def __len__(self):
