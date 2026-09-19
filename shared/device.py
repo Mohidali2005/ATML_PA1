@@ -1,7 +1,6 @@
 """
-This file picks the device every task two and task three script trains
-on so the same code runs on a cpu only machine or on a colab gpu without
-any change
+This file picks the device every task script trains on so the same code
+runs on a cpu only machine or on a colab gpu without any change
 """
 
 import torch

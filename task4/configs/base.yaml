@@ -1,0 +1,27 @@
+# shared settings used by every method in task four
+seed: 6304
+
+paths:
+  splits_path: task4/data/splits_seed6304.json
+  data_dir: task4/data/raw
+  checkpoints_dir: task4/results/checkpoints
+  tables_dir: task4/results/tables
+  figures_dir: task4/results/figures
+  cache_dir: task4/results/cache
+
+data:
+  batch_size: 128
+  eval_batch_size: 256
+  num_workers: 2
+  val_fraction: 0.1
+
+optimizer:
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  max_epochs: 100
+
+evaluation:
+  target_tpr: 0.95
+  n_failure_examples: 5
+  tsne_known_per_class: 40
