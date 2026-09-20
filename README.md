@@ -207,3 +207,90 @@ Notes:
 - CDAN's result is not stable across runs, two independent Colab runs of the
   identical code produced very different outcomes, since cuda determinism
   was never pinned. Both outcomes are documented in `CLAUDE.md`.
+
+## Task 4: Open-Set Recognition (OSR)
+
+Folder: `task4/`, entirely self contained apart from reusing
+`shared/device.py`
+
+Trains a CIFAR-appropriate ResNet-18 from scratch on all ten CIFAR-10
+classes twice, once with ordinary augmentation (Vanilla) and once with
+RandAugment added on top of the same recipe (GCSC), then fine tunes a third
+copy from the Vanilla checkpoint with PROSER's classifier and data
+placeholder objectives. Compares four post-hoc novelty scores (MSP, MLS,
+Energy, Mahalanobis) on the frozen Vanilla model, then compares Vanilla,
+GCSC, and PROSER against each other on closed-set accuracy and near and far
+unknown rejection using two fixed 800-image CIFAR-100 groups as unknowns.
+
+To run everything from inside `PA1`:
+
+```
+python -m task4.train
+python -m task4.evaluate_osr
+```
+
+or run each stage on its own, in this order:
+
+```
+python -m task4.data.make_splits
+python -m task4.methods.vanilla
+python -m task4.methods.gcsc
+python -m task4.methods.proser
+python -m task4.extract_outputs
+python -m task4.evaluation.score_comparison
+python -m task4.evaluation.method_comparison
+python -m task4.evaluation.failure_analysis
+python -m task4.evaluation.tsne_features
+```
+
+Results are saved in `task4/results/tables/` (csv files), figures in
+`task4/results/figures/` (png files), and checkpoints in
+`task4/results/checkpoints/` (pt files).
+
+Running on Colab:
+
+```
+!git clone https://github.com/Mohidali2005/ATML_PA1.git
+%cd ATML_PA1
+!pip install -q pyyaml scikit-learn pandas matplotlib datasets
+```
+
+```
+from google.colab import files
+uploaded = files.upload()
+```
+
+```
+!mkdir -p task4/results/checkpoints
+!mv vanilla.pt gcsc.pt task4/results/checkpoints/
+```
+
+```
+!python -m task4.methods.proser
+!python -m task4.evaluate_osr
+```
+
+Pick a T4 gpu runtime before running these cells. `task4.methods.proser`
+fine tunes from `task4/results/checkpoints/vanilla.pt`, and
+`task4.evaluate_osr` reads both `vanilla.pt` and `gcsc.pt`, so if those two
+checkpoints are not already sitting in the fresh Colab clone, upload them
+with the `files.upload()` cell above and move them into
+`task4/results/checkpoints/` before continuing. Once the run finishes zip
+and download `task4/results` to bring the tables and figures back to a
+local clone of this repo; checkpoints stay local only and are never
+committed.
+
+Notes:
+- CIFAR-10 and CIFAR-100 load through their Hugging Face mirrors
+  (`uoft-cs/cifar10`, `uoft-cs/cifar100`) instead of torchvision's official
+  download, which throttled badly mid-download on Colab. This needs
+  `pip install datasets` on top of the packages listed in Setup above.
+- The near and far unknown CIFAR-100 classes are fixed in
+  `task4/data/cifar100_unknowns.py` and are never used for anything except
+  final evaluation, no training, checkpoint selection, score design, or
+  threshold selection ever sees them.
+- Vanilla and GCSC each train for a fixed 100 epochs and PROSER fine tunes
+  for a further fixed 50 epochs, none of the three use early stopping;
+  every training run keeps whichever epoch had the best validation
+  accuracy rather than the final epoch's own checkpoint.
+- The optional Reciprocal Point Learning extension is not implemented.
