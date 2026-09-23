@@ -2,12 +2,17 @@
 This file trains the resnet eighteen backbone and its linear head using
 dann style adversarial alignment. A small domain discriminator sits
 behind a gradient reversal layer and tries to tell source features from
-target features while the backbone is pushed to confuse it
+target features while the backbone is pushed to confuse it. Training
+also clips gradients and normalizes the features feeding the
+discriminator and uses a lower learning rate than the other methods in
+this task since the plain adamw setup used everywhere else collapsed
+this method to chance level accuracy from the very first epoch
 """
 
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from task2.configs.config import load_config,set_seed
 from task2.methods.common import load_data,load_target_train_loader,build_model,save_checkpoint
@@ -18,7 +23,9 @@ from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
 from shared.device import DEVICE
 
-def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch):
+GRAD_CLIP_NORM = 5.0
+
+def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch,clip_params):
     """
     This function runs one epoch of dann training and returns the
     updated global step count together with the average classification
@@ -54,13 +61,19 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
         logits = head(source_features)
         cls_loss = criterion(logits,source_labels)
 
-        domain_features = torch.cat([source_features,target_features],dim=0)
+        # normalizing only the branch feeding the discriminator so the adversarial
+        # loss cannot blow up from raw feature magnitude while the classifier still
+        # sees the unnormalized features it always has
+        source_features_norm = F.normalize(source_features,dim=1)
+        target_features_norm = F.normalize(target_features,dim=1)
+        domain_features = torch.cat([source_features_norm,target_features_norm],dim=0)
         domain_labels = torch.cat([torch.zeros(source_features.size(0),dtype=torch.long,device=DEVICE),torch.ones(target_features.size(0),dtype=torch.long,device=DEVICE)])
         domain_logits = discriminator(domain_features,alpha)
         domain_loss = criterion(domain_logits,domain_labels)
 
         loss = cls_loss+domain_loss
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(clip_params,GRAD_CLIP_NORM)
         optimizer.step()
 
         total_cls_loss += cls_loss.item()
@@ -83,7 +96,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
     backbone,head = build_model()
     discriminator = DomainDiscriminator(backbone.feature_dim,cfg["discriminator"]["hidden_dim"],cfg["discriminator"]["dropout"]).to(DEVICE)
     params = list(backbone.parameters())+list(head.parameters())+list(discriminator.parameters())
-    optimizer = torch.optim.AdamW(params,lr=cfg["optimizer"]["lr"],weight_decay=cfg["optimizer"]["weight_decay"])
+    optimizer = torch.optim.AdamW(params,lr=cfg["dann"]["lr"],weight_decay=cfg["optimizer"]["weight_decay"])
     criterion = nn.CrossEntropyLoss()
 
     steps_per_epoch = max(len(train_loaders[domain]) for domain in SOURCE_DOMAINS)
@@ -98,7 +111,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
     history = []
 
     for epoch in range(cfg["optimizer"]["max_epochs"]):
-        global_step,cls_loss,domain_loss,domain_acc = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch)
+        global_step,cls_loss,domain_loss,domain_acc = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch,params)
 
         val_f1s = []
         for domain in SOURCE_DOMAINS:

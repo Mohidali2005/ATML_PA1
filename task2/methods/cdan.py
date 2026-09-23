@@ -2,7 +2,10 @@
 This file trains the resnet eighteen backbone and its linear head using
 cdan style class conditional adversarial alignment. The domain
 discriminator sees the outer product of the backbone feature and the
-predicted class probability instead of the feature alone
+predicted class probability instead of the feature alone. Training also
+clips gradients and normalizes the backbone feature going into that
+outer product since the plain adamw setup used everywhere else
+collapsed this method to chance level accuracy from the very first epoch
 """
 
 import os
@@ -19,6 +22,8 @@ from shared.bn_utils import freeze_batchnorm
 from shared.pacs_protocol import SOURCE_DOMAINS,cycle
 from shared.device import DEVICE
 
+GRAD_CLIP_NORM = 5.0
+
 def condition_on_prediction(features,probs):
     """
     This function builds the conditioning vector cdan feeds to its
@@ -30,7 +35,7 @@ def condition_on_prediction(features,probs):
     outer = features.unsqueeze(2)*probs.unsqueeze(1)
     return outer.view(batch,-1)
 
-def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch):
+def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch,clip_params):
     """
     This function runs one epoch of cdan training and returns the
     updated global step count together with the average classification
@@ -69,8 +74,13 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
 
         source_probs = F.softmax(source_logits,dim=1)
         target_probs = F.softmax(target_logits,dim=1)
-        source_conditioned = condition_on_prediction(source_features,source_probs)
-        target_conditioned = condition_on_prediction(target_features,target_probs)
+        # normalizing only the branch feeding the discriminator for the same reason
+        # dann normalizes its own features so the outer product cannot blow up from
+        # raw feature magnitude
+        source_features_norm = F.normalize(source_features,dim=1)
+        target_features_norm = F.normalize(target_features,dim=1)
+        source_conditioned = condition_on_prediction(source_features_norm,source_probs)
+        target_conditioned = condition_on_prediction(target_features_norm,target_probs)
 
         domain_features = torch.cat([source_conditioned,target_conditioned],dim=0)
         domain_labels = torch.cat([torch.zeros(source_features.size(0),dtype=torch.long,device=DEVICE),torch.ones(target_features.size(0),dtype=torch.long,device=DEVICE)])
@@ -79,6 +89,7 @@ def train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,
 
         loss = cls_loss+domain_loss
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(clip_params,GRAD_CLIP_NORM)
         optimizer.step()
 
         total_cls_loss += cls_loss.item()
@@ -117,7 +128,7 @@ def run_training(cfg,max_alpha,checkpoint_name):
     history = []
 
     for epoch in range(cfg["optimizer"]["max_epochs"]):
-        global_step,cls_loss,domain_loss,domain_acc = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch)
+        global_step,cls_loss,domain_loss,domain_acc = train_epoch(backbone,head,discriminator,train_loaders,target_iter,optimizer,criterion,max_alpha,global_step,total_steps,steps_per_epoch,params)
 
         val_f1s = []
         for domain in SOURCE_DOMAINS:
