@@ -17,7 +17,7 @@ from task2.evaluation.domain_separability import collect_domain_features,domain_
 from task2.experiments.dann_stabilized import stabilized_paths
 from shared.pacs_protocol import SOURCE_DOMAINS
 
-METHODS = ["dann_stabilized","cdan_stabilized"]
+METHODS = [("dann_stabilized","dann"),("cdan_stabilized","cdan"),("dann_stabilized_highlr","dann"),("cdan_stabilized_highlr","cdan")]
 
 def main():
     """
@@ -36,7 +36,7 @@ def main():
     original = pd.read_csv(f"{TASK2_ROOT}/results/tables/method_comparison.csv").set_index("method")
 
     rows = []
-    for method in METHODS:
+    for method,original_method in METHODS:
         backbone,head = build_model()
         checkpoint_path = f"{cfg['paths']['checkpoints_dir']}/{method}.pt"
         load_checkpoint(backbone,head,checkpoint_path)
@@ -61,7 +61,6 @@ def main():
         row["domain_separability"] = domain_separability_score(source_feats,target_feats,cfg)
         rows.append(row)
 
-        original_method = method.replace("_stabilized","")
         original_row = original.loc[original_method]
         print(f"{method} mean_source_f1 {row['mean_source_f1']:.3f} target_acc {row['target_acc']:.3f} domain_separability {row['domain_separability']:.3f}")
         print(f"{original_method} original mean_source_f1 {original_row['mean_source_f1']:.3f} target_acc {original_row['target_acc']:.3f} domain_separability {original_row['domain_separability']:.3f}")
