@@ -211,9 +211,14 @@ backbone's representation changes under every intervention.
   \label{tab:task1-shapebias}
 \end{table}
 
-Table~\ref{tab:task1-main} shows grayscale costs a little accuracy while
-color swap costs almost nothing; translation is similarly mild. Patch
-shuffle hurts every backbone substantially, and it hurts CLIP the most.
+Table~\ref{tab:task1-main} shows grayscale costs a little accuracy, since
+removing color leaves each image's shape and texture structure intact.
+Color swap costs almost nothing, since STL-10's ten classes already
+separate well by shape and texture alone. Translation is similarly mild,
+since the object stays in frame at these displacement sizes with
+reflection padding keeping the background plausible. Patch shuffle hurts
+every backbone substantially, since it destroys global structure, and it
+hurts CLIP the most.
 All three backbones favor shape over
 texture on the cue conflict images, the opposite of the texture bias
 reported for ordinary ImageNet trained CNNs
