@@ -11,3 +11,7 @@ __pycache__/
 *.pth
 *.pt
 *.log
+*.aux
+*.bbl
+*.blg
+*.out
